@@ -13,44 +13,85 @@ import java.util.Date;
 public class JwtUtil {
     private static final Logger logger = LoggerFactory.getLogger(JwtUtil.class);
 
-    @Value("${jwt.secret:AZERTYUIOP0123456789AZERTYUIOP0123456789AZERTYUIOP0123456789}")
+    @Value("${jwt.secret}")
     private String jwtSecret;
 
-    @Value("${jwt.expiration:86400000}")
+    @Value("${jwt.expiration}")
     private long jwtExpiration;
 
-    public String generateToken(Integer userId) {
+    public String generateToken(Integer userId, Integer clientId) {
         try {
-            String token = Jwts.builder()
-                    .subject(userId.toString())
-                    .issuedAt(new Date())
-                    .expiration(new Date(System.currentTimeMillis() + jwtExpiration))
+            return Jwts.builder()
+                    .claim("userId", userId)
+                    .claim("clientId", clientId)
+                    .setIssuedAt(new Date())
+                    .setExpiration(new Date(System.currentTimeMillis() + jwtExpiration))
                     .signWith(Keys.hmacShaKeyFor(jwtSecret.getBytes()))
                     .compact();
-
-            logger.info("Jeton généré avec succès pour l'utilisateur : " + userId);
-            return token;
         } catch (Exception e) {
-            logger.error("Erreur lors de la génération du jeton : " + e.getMessage());
-            throw new RuntimeException("Erreur lors de la génération du jeton", e);
+            logger.error("Error generating JWT: " + e.getMessage());
+            throw new RuntimeException("Error generating JWT", e);
         }
+    }
+
+    public boolean validateToken(String token) {
+        try {
+            Jwts.parserBuilder()
+                    .setSigningKey(Keys.hmacShaKeyFor(jwtSecret.getBytes()))
+                    .build()
+                    .parseClaimsJws(token);
+            return true;
+        } catch (Exception e) {
+            logger.error("Invalid JWT: " + e.getMessage());
+            return false;
+        }
+    }
+
+    public Integer getUserIdFromToken(String token) {
+        return Jwts.parserBuilder()
+                .setSigningKey(Keys.hmacShaKeyFor(jwtSecret.getBytes()))
+                .build()
+                .parseClaimsJws(token)
+                .getBody()
+                .get("userId", Integer.class);
+    }
+
+    public Integer getClientIdFromToken(String token) {
+        return Jwts.parserBuilder()
+                .setSigningKey(Keys.hmacShaKeyFor(jwtSecret.getBytes()))
+                .build()
+                .parseClaimsJws(token)
+                .getBody()
+                .get("clientId", Integer.class);
+    }
+
+    public Integer getAuthenticatedClientId() {
+        // Simule l'extraction du clientId depuis le JWT authentifié
+        return Jwts.parserBuilder()
+                .setSigningKey(Keys.hmacShaKeyFor(jwtSecret.getBytes()))
+                .build()
+                .parseClaimsJws(getCurrentToken())
+                .getBody()
+                .get("clientId", Integer.class);
+    }
+
+    private String getCurrentToken() {
+        // Implémentation fictive pour récupérer le token actuel
+        // À remplacer par une méthode réelle pour extraire le token du contexte de sécurité
+        return "currentToken";
     }
 
     public Integer validateAndGetUserId(String token) {
         try {
-            String userId = Jwts.parser()
-                    .verifyWith(Keys.hmacShaKeyFor(jwtSecret.getBytes()))
+            return Jwts.parserBuilder()
+                    .setSigningKey(Keys.hmacShaKeyFor(jwtSecret.getBytes()))
                     .build()
-                    .parseSignedClaims(token)
-                    .getPayload()
-                    .getSubject();
-
-            logger.info("Jeton validé avec succès pour l'utilisateur : " + userId);
-            return Integer.parseInt(userId);
+                    .parseClaimsJws(token)
+                    .getBody()
+                    .get("userId", Integer.class);
         } catch (Exception e) {
-            logger.error("Erreur lors de la validation du jeton : " + e.getMessage());
+            logger.error("Invalid or expired token: " + e.getMessage());
             return null;
         }
     }
 }
-

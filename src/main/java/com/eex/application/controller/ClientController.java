@@ -2,6 +2,7 @@ package com.eex.application.controller;
 
 import com.eex.domain.entity.Client;
 import com.eex.domain.service.ClientService;
+import com.eex.domain.util.JwtUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -15,6 +16,8 @@ import java.util.Optional;
 @RequiredArgsConstructor
 public class ClientController {
     private final ClientService clientService;
+    private final JwtUtil jwtUtil;
+
 
     @GetMapping
     public ResponseEntity<List<Client>> getAllClients() {
@@ -25,6 +28,14 @@ public class ClientController {
     @GetMapping("/{id}")
     public ResponseEntity<Client> getClientById(@PathVariable Integer id) {
         Optional<Client> client = clientService.getClientById(id);
+        return client.map(value -> new ResponseEntity<>(value, HttpStatus.OK))
+                .orElseGet(() -> new ResponseEntity<>(HttpStatus.NOT_FOUND));
+    }
+
+    @GetMapping("/me")
+    public ResponseEntity<Client> getAuthenticatedClient() {
+        Integer clientId = jwtUtil.getAuthenticatedClientId();
+        Optional<Client> client = clientService.getClientById(clientId);
         return client.map(value -> new ResponseEntity<>(value, HttpStatus.OK))
                 .orElseGet(() -> new ResponseEntity<>(HttpStatus.NOT_FOUND));
     }

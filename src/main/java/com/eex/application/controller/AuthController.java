@@ -14,7 +14,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.Objects;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -29,38 +28,35 @@ public class AuthController {
 
     @PostMapping("/login")
     public ResponseEntity<AuthResponse> login(@RequestBody LoginRequest loginRequest) {
-        logger.info("Tentative de connexion pour l'utilisateur : " + loginRequest.getUsername());
+        logger.info("Login attempt for user: " + loginRequest.getUsername());
 
         List<User> users = userService.getUsersByUsername(loginRequest.getUsername());
 
         if (users.isEmpty()) {
-            logger.warn("Utilisateur non trouvé : " + loginRequest.getUsername());
-            AuthResponse response = new AuthResponse(null, "Identifiants invalides");
-            return new ResponseEntity<>(response, HttpStatus.UNAUTHORIZED);
+            logger.warn("User not found: " + loginRequest.getUsername());
+            return new ResponseEntity<>(new AuthResponse(null, "Invalid credentials"), HttpStatus.UNAUTHORIZED);
         }
 
         User user = users.get(0);
 
         if (!PasswordUtil.matches(loginRequest.getPassword(), user.getPassword())) {
-            logger.warn("Mot de passe incorrect pour l'utilisateur : " + loginRequest.getUsername());
-            AuthResponse response = new AuthResponse(null, "Identifiants invalides");
-            return new ResponseEntity<>(response, HttpStatus.UNAUTHORIZED);
+            logger.warn("Invalid password for user: " + loginRequest.getUsername());
+            return new ResponseEntity<>(new AuthResponse(null, "Invalid credentials"), HttpStatus.UNAUTHORIZED);
         }
 
-        String token = jwtUtil.generateToken(user.getId());
-        logger.info("Connexion réussie pour l'utilisateur : " + loginRequest.getUsername());
+        String token = jwtUtil.generateToken(user.getId(), user.getClientId());
+        logger.info("Login successful for user: " + loginRequest.getUsername());
 
-        AuthResponse response = new AuthResponse(token, "Authentification réussie");
-        return new ResponseEntity<>(response, HttpStatus.OK);
+        return new ResponseEntity<>(new AuthResponse(token, "Authentication successful"), HttpStatus.OK);
     }
 
     @PostMapping("/validate")
     public ResponseEntity<AuthResponse> validateToken(@RequestHeader("Authorization") String authHeader) {
-        logger.info("Validation du jeton");
+        logger.info("Validating token");
 
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-            logger.warn("En-tête Authorization manquant ou invalide");
-            AuthResponse response = new AuthResponse(null, "Jeton manquant ou invalide");
+            logger.warn("Missing or invalid Authorization header");
+            AuthResponse response = new AuthResponse(null, "Missing or invalid token");
             return new ResponseEntity<>(response, HttpStatus.UNAUTHORIZED);
         }
 
@@ -68,14 +64,13 @@ public class AuthController {
         Integer userId = jwtUtil.validateAndGetUserId(token);
 
         if (userId == null) {
-            logger.warn("Jeton invalide ou expiré");
-            AuthResponse response = new AuthResponse(null, "Jeton invalide ou expiré");
+            logger.warn("Invalid or expired token");
+            AuthResponse response = new AuthResponse(null, "Invalid or expired token");
             return new ResponseEntity<>(response, HttpStatus.UNAUTHORIZED);
         }
 
-        logger.info("Jeton valide pour l'utilisateur : " + userId);
-        AuthResponse response = new AuthResponse(token, "Jeton valide pour l'utilisateur : " + userId);
+        logger.info("Valid token for user: " + userId);
+        AuthResponse response = new AuthResponse(token, "Valid token for user: " + userId);
         return new ResponseEntity<>(response, HttpStatus.OK);
     }
 }
-

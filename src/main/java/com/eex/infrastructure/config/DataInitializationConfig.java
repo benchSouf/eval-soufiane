@@ -11,69 +11,73 @@ import java.sql.SQLException;
 @Configuration
 public class DataInitializationConfig {
 
-    private static final String sqlite_url = "jdbc:sqlite:sqlite/sqlite.test.db";
+    private static final String SQLITE_URL = "jdbc:sqlite:sqlite/sqlite.test.db";
+
+    private static final String CREATE_CLIENT_TABLE_QUERY = "CREATE TABLE IF NOT EXISTS client ("
+            + " id INTEGER PRIMARY KEY,"
+            + " legal_entity BOOLEAN NOT NULL"
+            + ");";
+
+    private static final String CREATE_USER_TABLE_QUERY = "CREATE TABLE IF NOT EXISTS user ("
+            + " id INTEGER PRIMARY KEY,"
+            + " username TEXT NOT NULL,"
+            + " password TEXT NOT NULL,"
+            + " client_id INTEGER NOT NULL,"
+            + " FOREIGN KEY (client_id) REFERENCES client(id)"
+            + ");";
+
+    private static final String CREATE_ACCOUNT_TABLE_QUERY = "CREATE TABLE IF NOT EXISTS account ("
+            + " id INTEGER PRIMARY KEY,"
+            + " name TEXT NOT NULL,"
+            + " amount DOUBLE NOT NULL,"
+            + " client_id INTEGER NOT NULL,"
+            + " FOREIGN KEY (client_id) REFERENCES client(id)"
+            + ");";
 
     @Bean
     public CommandLineRunner initializeDatabase() {
         return args -> {
-            try (var conn = DriverManager.getConnection(sqlite_url)) {
+            try (var conn = DriverManager.getConnection(SQLITE_URL)) {
                 if (conn != null) {
                     var meta = conn.getMetaData();
-                    System.out.println("La base a été créée sur " + meta.getURL());
+                    System.out.println("Database created at: " + meta.getURL());
                 }
                 createTables();
                 insertData();
-                System.out.println("La base de données a été initialisée");
+                System.out.println("Database initialization complete.");
                 displayData();
             } catch (Exception e) {
-                System.err.println("Erreur lors de l'initialisation SQLite : " + e.getMessage());
+                System.err.println("Error during SQLite initialization: " + e.getMessage());
                 e.printStackTrace();
             }
         };
     }
 
     public static void createTables() {
-        var createClientTableQuery = "CREATE TABLE IF NOT EXISTS client ("
-                + "	id INTEGER PRIMARY KEY,"
-                + "	legal_entity BOOLEAN NOT NULL"
-                + ");";
-        var createUserTableQuery = "CREATE TABLE IF NOT EXISTS user ("
-                + "	id INTEGER PRIMARY KEY,"
-                + "	username TEXT NOT NULL,"
-                + "	password TEXT NOT NULL,"
-                + "	client_id INTEGER NOT NULL,"
-                + "	FOREIGN KEY (client_id) REFERENCES client(id)"
-                + ");";
-        var createAccountsTableQuery = "CREATE TABLE IF NOT EXISTS account ("
-                + "	id INTEGER PRIMARY KEY,"
-                + "	name TEXT NOT NULL,"
-                + "	amount DOUBLE NOT NULL,"
-                + "	client_id INTEGER NOT NULL,"
-                + "	FOREIGN KEY (client_id) REFERENCES client(id)"
-                + ");";
-
-        try (var conn = DriverManager.getConnection(sqlite_url);
+        try (var conn = DriverManager.getConnection(SQLITE_URL);
              var stmt = conn.createStatement()) {
-            stmt.execute(createClientTableQuery);
-            stmt.execute(createUserTableQuery);
-            stmt.execute(createAccountsTableQuery);
+            stmt.execute(CREATE_CLIENT_TABLE_QUERY);
+            stmt.execute(CREATE_USER_TABLE_QUERY);
+            stmt.execute(CREATE_ACCOUNT_TABLE_QUERY);
+            System.out.println("Tables created successfully.");
         } catch (SQLException e) {
-            System.out.println(e.getMessage());
+            System.err.println("Error creating tables: " + e.getMessage());
         }
     }
 
     public static void insertData() {
-        var legalEntity = new boolean[] {true, true, true, false, false};
-        var usernames = new String[] {"Alice", "Bernard", "Chloé", "David", "Emma"};
-        var passwords = new String[] {"aliceSecret", "bernardSecret", "chloeSecret", "davidSecret", "emmaSecret"};
-        var accountNames = new String[] {"AMAZON", "BORNEO", "COMORA"};
-        var amounts = new double[] {1000.0, 2000.0, 3000.0};
+        var legalEntity = new boolean[]{true, true, true, false, false};
+        var usernames = new String[]{"Alice", "Bernard", "Chloé", "David", "Emma"};
+        var passwords = new String[]{"aliceSecret", "bernardSecret", "chloeSecret", "davidSecret", "emmaSecret"};
+        var accountNames = new String[]{"AMAZON", "BORNEO", "COMORA"};
+        var amounts = new double[]{1000.0, 2000.0, 3000.0};
 
-        try (var conn = DriverManager.getConnection(sqlite_url);
-             var pstmtClient =  conn.prepareStatement("INSERT OR IGNORE INTO client (id, legal_entity) VALUES(?,?)");
-             var pstmtUser =    conn.prepareStatement("INSERT OR IGNORE INTO user (id, client_id, username, password) VALUES(?,?,?,?)");
+        try (var conn = DriverManager.getConnection(SQLITE_URL);
+             var pstmtClient = conn.prepareStatement("INSERT OR IGNORE INTO client (id, legal_entity) VALUES(?,?)");
+             var pstmtUser = conn.prepareStatement("INSERT OR IGNORE INTO user (id, client_id, username, password) VALUES(?,?,?,?)");
              var pstmtAccount = conn.prepareStatement("INSERT OR IGNORE INTO account (id, client_id, name, amount) VALUES(?,?,?,?)")) {
-            for (int i = 0; i < 5; i++){
+
+            for (int i = 0; i < 5; i++) {
                 pstmtClient.setInt(1, i + 1);
                 pstmtClient.setBoolean(2, legalEntity[i]);
                 pstmtClient.executeUpdate();
@@ -85,20 +89,22 @@ public class DataInitializationConfig {
                 pstmtUser.executeUpdate();
             }
 
-            for (int i = 0; i < 3; i++){
+            for (int i = 0; i < 3; i++) {
                 pstmtAccount.setInt(1, i + 1);
                 pstmtAccount.setInt(2, i + 1);
                 pstmtAccount.setString(3, accountNames[i]);
                 pstmtAccount.setDouble(4, amounts[i]);
                 pstmtAccount.executeUpdate();
             }
+
+            System.out.println("Data inserted successfully.");
         } catch (SQLException e) {
-            System.err.println(e.getMessage());
+            System.err.println("Error inserting data: " + e.getMessage());
         }
     }
 
     public static void displayData() {
-        try (var conn = DriverManager.getConnection(sqlite_url);
+        try (var conn = DriverManager.getConnection(SQLITE_URL);
              var stmt = conn.createStatement();
              var rsUser = stmt.executeQuery("SELECT * FROM user")) {
 
@@ -113,10 +119,10 @@ public class DataInitializationConfig {
                 );
             }
         } catch (SQLException e) {
-            System.err.println(e.getMessage());
+            System.err.println("Error displaying user data: " + e.getMessage());
         }
 
-        try (var conn = DriverManager.getConnection(sqlite_url);
+        try (var conn = DriverManager.getConnection(SQLITE_URL);
              var stmt = conn.createStatement();
              var rsClient = stmt.executeQuery("SELECT * FROM client")) {
 
@@ -129,10 +135,10 @@ public class DataInitializationConfig {
                 );
             }
         } catch (SQLException e) {
-            System.err.println(e.getMessage());
+            System.err.println("Error displaying client data: " + e.getMessage());
         }
 
-        try (var conn = DriverManager.getConnection(sqlite_url);
+        try (var conn = DriverManager.getConnection(SQLITE_URL);
              var stmt = conn.createStatement();
              var rsAccount = stmt.executeQuery("SELECT * FROM account")) {
 
@@ -147,8 +153,7 @@ public class DataInitializationConfig {
                 );
             }
         } catch (SQLException e) {
-            System.err.println(e.getMessage());
+            System.err.println("Error displaying account data: " + e.getMessage());
         }
     }
 }
-

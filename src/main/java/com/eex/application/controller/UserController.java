@@ -1,7 +1,9 @@
 package com.eex.application.controller;
 
+import com.eex.application.dto.UserResponse;
 import com.eex.domain.entity.User;
 import com.eex.domain.service.UserService;
+import com.eex.domain.util.JwtUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -9,17 +11,24 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/users")
 @RequiredArgsConstructor
 public class UserController {
     private final UserService userService;
+    private final JwtUtil jwtUtil;
+
 
     @GetMapping
-    public ResponseEntity<List<User>> getAllUsers() {
-        List<User> users = userService.getAllUsers();
-        return new ResponseEntity<>(users, HttpStatus.OK);
+    public ResponseEntity<List<UserResponse>> getAllUsers() {
+        Integer clientId = jwtUtil.getAuthenticatedClientId();
+        List<User> users = userService.getUsersByClientId(clientId);
+        List<UserResponse> userResponses = users.stream()
+                .map(user -> new UserResponse(user.getId(), user.getUsername(), user.getClientId()))
+                .collect(Collectors.toList());
+        return new ResponseEntity<>(userResponses, HttpStatus.OK);
     }
 
     @GetMapping("/{id}")
@@ -40,6 +49,8 @@ public class UserController {
         List<User> users = userService.getUsersByUsername(username);
         return new ResponseEntity<>(users, HttpStatus.OK);
     }
+
+
 
     @PostMapping
     public ResponseEntity<User> createUser(@RequestBody User user) {
